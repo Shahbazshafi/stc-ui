@@ -1,14 +1,20 @@
-export const runtime = "nodejs";
-
 export async function POST() {
+  const base = process.env.N8N_BASE!;
   try {
-    const n8n = process.env.N8N_BASE?.replace(/\/$/, "");
-    if (!n8n) return Response.json({ error: "Missing N8N_BASE" }, { status: 500 });
+    const r = await fetch(`${base}/webhook/classify-now`, { method: 'POST' });
 
-    const res = await fetch(`${n8n}/webhook/classify-now`, { method: "POST" });
-    const text = await res.text();
-    return new Response(text, { status: res.status, headers: { "content-type": "application/json" } });
+    const ct = r.headers.get('content-type') || '';
+    let data: any;
+
+    if (ct.includes('application/json')) {
+      data = await r.json();
+    } else {
+      const txt = await r.text(); // handle empty or text bodies
+      data = { ok: r.ok, body: txt || null };
+    }
+
+    return Response.json(data, { status: r.ok ? 200 : 502 });
   } catch (e: any) {
-    return Response.json({ error: e?.message || String(e) }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || 'fetch_failed' }, { status: 500 });
   }
 }
